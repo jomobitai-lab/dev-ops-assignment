@@ -1,0 +1,11 @@
+# Default values for mychart
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: "1.24-alpine"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
