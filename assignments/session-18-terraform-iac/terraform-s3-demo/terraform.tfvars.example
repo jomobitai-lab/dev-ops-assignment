@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars and change the values.
+# Do NOT put AWS access keys here — use `aws configure` or environment variables.
+aws_region  = "ap-south-1"
+bucket_name = "pulasari-jai-devops-24bcs10656"
