@@ -1,6 +1,14 @@
 """App configuration read from environment variables."""
 import os
 
+# Load variables from a .env file for local development (searches cwd upward).
+# On Vercel the real environment variables are used, so this is a no-op there.
+try:
+    from dotenv import load_dotenv, find_dotenv
+    load_dotenv(find_dotenv(usecwd=True))
+except Exception:
+    pass
+
 
 class Settings:
     # Database: use DATABASE_URL if set (Neon/Postgres), else a local SQLite file.
