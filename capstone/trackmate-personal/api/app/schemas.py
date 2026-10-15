@@ -135,3 +135,42 @@ class GoalIn(BaseModel):
 class GoalOut(GoalIn):
     id: int
     model_config = {"from_attributes": True}
+
+
+# ---------- workout plans ----------
+class PlanExerciseIn(BaseModel):
+    exercise_id: int
+    position: int = 0
+
+
+class PlanExerciseOut(BaseModel):
+    exercise_id: int
+    position: int
+    exercise_name: Optional[str] = None
+    muscle_group: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
+class PlanIn(BaseModel):
+    name: str
+    muscle_groups: str = ""
+    items: List[PlanExerciseIn] = []
+
+
+class PlanOut(BaseModel):
+    id: int
+    name: str
+    muscle_groups: str
+    items: List[PlanExerciseOut] = []
+    model_config = {"from_attributes": True}
+
+
+# ---------- last performance / PR for an exercise ----------
+class LastPerformanceOut(BaseModel):
+    exercise_id: int
+    exercise_name: str
+    last_date: Optional[date] = None
+    last_best_weight: Optional[float] = None   # heaviest set last session
+    last_best_reps: Optional[int] = None
+    last_comment: Optional[str] = None
+    pr_weight: Optional[float] = None          # all-time heaviest

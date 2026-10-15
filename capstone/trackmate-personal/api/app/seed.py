@@ -35,6 +35,11 @@ TEMPLATES = [
     ("Overhead Tricep Extension", "Triceps", "Dumbbell"),
     ("Close Grip Bench Press", "Triceps", "Barbell"),
     ("Dips", "Triceps", "Bodyweight"),
+    # Forearms
+    ("Wrist Curl", "Forearms", "Barbell"),
+    ("Reverse Wrist Curl", "Forearms", "Dumbbell"),
+    ("Farmer's Carry", "Forearms", "Dumbbell"),
+    ("Reverse Barbell Curl", "Forearms", "Barbell"),
     # Core
     ("Plank", "Core", "Bodyweight"),
     ("Hanging Leg Raise", "Core", "Bodyweight"),
