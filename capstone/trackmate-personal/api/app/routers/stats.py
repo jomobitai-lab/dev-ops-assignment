@@ -1,4 +1,5 @@
 """Dashboard stats: summary numbers, personal records, activity heatmap."""
+from collections import Counter
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -28,13 +29,27 @@ def summary(db: Session = Depends(get_db), _: bool = Depends(require_auth)):
     total_workouts = db.query(models.Workout).count()
     avg_sleep = db.query(func.coalesce(func.avg(models.SleepLog.hours), 0)).scalar()
 
-    # current gym streak: consecutive days with a workout, ending today or yesterday
+    # Weekly streak: you train a few days a week on alternate days, so a daily
+    # streak is wrong. Instead: count workout sessions per ISO week, and the streak
+    # is how many weeks in a row you hit your weekly goal. Rest days never break it.
+    weekly_goal = int(_goal(db, "weekly_workouts") or 3)
     dates = {d[0] for d in db.query(models.Workout.date).distinct().all()}
+    week_counts = Counter((d.isocalendar()[0], d.isocalendar()[1]) for d in dates)
+
+    def wkey(dt):
+        iso = dt.isocalendar()
+        return (iso[0], iso[1])
+
+    this_week = week_counts.get(wkey(today), 0)
     streak = 0
-    cur = today if today in dates else today - timedelta(days=1)
-    while cur in dates:
+    cur = today
+    # a not-yet-finished current week shouldn't break the streak, so if this week's
+    # goal isn't met yet, start counting from last week.
+    if week_counts.get(wkey(cur), 0) < weekly_goal:
+        cur = cur - timedelta(days=7)
+    while week_counts.get(wkey(cur), 0) >= weekly_goal:
         streak += 1
-        cur -= timedelta(days=1)
+        cur = cur - timedelta(days=7)
 
     return {
         "current_weight": latest_bw.weight_kg if latest_bw else None,
@@ -46,7 +61,9 @@ def summary(db: Session = Depends(get_db), _: bool = Depends(require_auth)):
         "total_earnings": round(total_earnings, 2),
         "savings_goal": _goal(db, "savings"),
         "total_workouts": total_workouts,
-        "gym_streak": streak,
+        "week_streak": streak,              # consecutive weeks hitting the goal
+        "this_week_workouts": this_week,
+        "weekly_goal": weekly_goal,
         "avg_sleep_hours": round(avg_sleep, 1),
     }
 
@@ -76,3 +93,17 @@ def activity(db: Session = Depends(get_db), _: bool = Depends(require_auth)):
         .all()
     )
     return [{"date": d.isoformat(), "count": c} for d, c in rows]
+
+
+@router.get("/muscle-balance")
+def muscle_balance(db: Session = Depends(get_db), _: bool = Depends(require_auth)):
+    """Number of sets logged per muscle group (for the radar chart)."""
+    groups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Forearms", "Core"]
+    rows = (
+        db.query(models.Exercise.muscle_group, func.count(models.WorkoutSet.id))
+        .join(models.WorkoutSet, models.WorkoutSet.exercise_id == models.Exercise.id)
+        .group_by(models.Exercise.muscle_group)
+        .all()
+    )
+    counts = {g: c for g, c in rows}
+    return [{"group": g, "sets": counts.get(g, 0)} for g in groups]

@@ -1,6 +1,7 @@
 """Exercise template library endpoints."""
 from typing import Optional, List
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -27,3 +28,40 @@ def add_exercise(body: schemas.ExerciseIn,
     db.commit()
     db.refresh(ex)
     return ex
+
+
+@router.get("/{exercise_id}/last", response_model=schemas.LastPerformanceOut)
+def last_performance(exercise_id: int,
+                     db: Session = Depends(get_db), _: bool = Depends(require_auth)):
+    """How this exercise went last time + all-time PR, so you know what to beat."""
+    ex = db.get(models.Exercise, exercise_id)
+    if not ex:
+        raise HTTPException(404, "Exercise not found")
+
+    out = schemas.LastPerformanceOut(exercise_id=exercise_id, exercise_name=ex.name)
+
+    # all-time heaviest weight for this exercise
+    pr = (db.query(func.max(models.WorkoutSet.weight_kg))
+          .filter(models.WorkoutSet.exercise_id == exercise_id).scalar())
+    out.pr_weight = pr
+
+    # most recent workout that used this exercise
+    last_workout = (
+        db.query(models.Workout)
+        .join(models.WorkoutSet, models.WorkoutSet.workout_id == models.Workout.id)
+        .filter(models.WorkoutSet.exercise_id == exercise_id)
+        .order_by(models.Workout.date.desc())
+        .first()
+    )
+    if last_workout:
+        out.last_date = last_workout.date
+        # best (heaviest) set of this exercise in that session
+        best = None
+        for s in last_workout.sets:
+            if s.exercise_id == exercise_id and (best is None or s.weight_kg > best.weight_kg):
+                best = s
+        if best:
+            out.last_best_weight = best.weight_kg
+            out.last_best_reps = best.reps
+            out.last_comment = best.comment
+    return out

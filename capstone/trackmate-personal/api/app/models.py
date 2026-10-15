@@ -94,9 +94,32 @@ class SleepLog(Base):
 
 
 class Goal(Base):
-    """A target you set (weight, calories, protein, savings)."""
+    """A target you set (weight, calories, protein, savings, weekly_workouts)."""
     __tablename__ = "goals"
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String(40), unique=True, nullable=False)  # weight/calories/protein/savings
+    type = Column(String(40), unique=True, nullable=False)
     target_value = Column(Float, nullable=False)
     note = Column(String(200), default="")
+
+
+class WorkoutPlan(Base):
+    """A saved workout plan, e.g. 'Tuesday - Chest + Triceps' with its exercises."""
+    __tablename__ = "workout_plans"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(120), nullable=False)       # e.g. "Tuesday - Chest + Triceps"
+    muscle_groups = Column(String(200), default="")  # comma list, e.g. "Chest,Triceps"
+    items = relationship(
+        "WorkoutPlanExercise", back_populates="plan",
+        cascade="all, delete-orphan", order_by="WorkoutPlanExercise.position",
+    )
+
+
+class WorkoutPlanExercise(Base):
+    """An exercise inside a workout plan, in order."""
+    __tablename__ = "workout_plan_exercises"
+    id = Column(Integer, primary_key=True, index=True)
+    plan_id = Column(Integer, ForeignKey("workout_plans.id", ondelete="CASCADE"))
+    exercise_id = Column(Integer, ForeignKey("exercises.id"))
+    position = Column(Integer, default=0)
+    plan = relationship("WorkoutPlan", back_populates="items")
+    exercise = relationship("Exercise")
