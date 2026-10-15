@@ -10,7 +10,7 @@ from .auth import check_password, create_token
 from . import schemas
 from .routers import (
     exercises, workouts, body_weight, nutrition,
-    earnings, achievements, sleep, goals, stats, plans,
+    earnings, achievements, sleep, goals, stats, plans, profile,
 )
 
 app = FastAPI(title="TrackMate API", version="1.0.0")
@@ -52,5 +52,5 @@ def login(body: schemas.LoginIn):
 
 # Register all feature routers.
 for r in (exercises, workouts, body_weight, nutrition,
-          earnings, achievements, sleep, goals, stats, plans):
+          earnings, achievements, sleep, goals, stats, plans, profile):
     app.include_router(r.router)

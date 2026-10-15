@@ -32,7 +32,8 @@ def summary(db: Session = Depends(get_db), _: bool = Depends(require_auth)):
     # Weekly streak: you train a few days a week on alternate days, so a daily
     # streak is wrong. Instead: count workout sessions per ISO week, and the streak
     # is how many weeks in a row you hit your weekly goal. Rest days never break it.
-    weekly_goal = int(_goal(db, "weekly_workouts") or 3)
+    prof = db.query(models.Profile).first()
+    weekly_goal = int((prof.weekly_goal if prof else None) or _goal(db, "weekly_workouts") or 3)
     dates = {d[0] for d in db.query(models.Workout.date).distinct().all()}
     week_counts = Counter((d.isocalendar()[0], d.isocalendar()[1]) for d in dates)
 

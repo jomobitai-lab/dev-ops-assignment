@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Moon, Wallet, Award, Target, LogOut } from "lucide-react";
+import { Plus, Trash2, Moon, Wallet, Award, Target, LogOut, User } from "lucide-react";
 import { api } from "../api";
 import { Sheet, Field, inputCls } from "../components/ui/sheet.jsx";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
-const TABS = [["sleep", "Sleep", Moon], ["earnings", "Earnings", Wallet], ["wins", "Wins", Award], ["goals", "Goals", Target]];
+const TABS = [["profile", "Profile", User], ["goals", "Goals", Target], ["sleep", "Sleep", Moon], ["earnings", "Earnings", Wallet], ["wins", "Wins", Award]];
 
 export default function MoreScreen({ onLogout }) {
   const [tab, setTab] = useState("sleep");
@@ -26,10 +26,11 @@ export default function MoreScreen({ onLogout }) {
         ))}
       </div>
 
+      {tab === "profile" && <ProfileTab />}
+      {tab === "goals" && <GoalsTab />}
       {tab === "sleep" && <SleepTab />}
       {tab === "earnings" && <EarningsTab />}
       {tab === "wins" && <WinsTab />}
-      {tab === "goals" && <GoalsTab />}
     </div>
   );
 }
@@ -185,8 +186,40 @@ function WinsTab() {
 }
 
 // ---------- Goals ----------
+// ---------- Profile ----------
+function ProfileTab() {
+  const [p, setP] = useState(null);
+  useEffect(() => { api.get("/profile").then(setP).catch(() => {}); }, []);
+  async function save(e) {
+    e.preventDefault();
+    const saved = await api.put("/profile", {
+      name: p.name || "", height_cm: parseFloat(p.height_cm || 0),
+      default_rest_seconds: parseInt(p.default_rest_seconds || 90),
+      weekly_goal: parseInt(p.weekly_goal || 3),
+    });
+    setP(saved);
+  }
+  if (!p) return <Empty text="Loading…" />;
+  return (
+    <form onSubmit={save} className="space-y-3 rounded-2xl bg-card p-4">
+      <div className="mb-1 flex items-center gap-3">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-lime/15 text-lg font-extrabold text-lime">
+          {(p.name || "?").trim().charAt(0).toUpperCase()}
+        </span>
+        <div className="text-sm text-muted-foreground">Your profile</div>
+      </div>
+      <Field label="Name"><input value={p.name || ""} onChange={(e) => setP({ ...p, name: e.target.value })} className={inputCls} placeholder="Your name" /></Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Height (cm)"><input type="number" value={p.height_cm || ""} onChange={(e) => setP({ ...p, height_cm: e.target.value })} className={inputCls} /></Field>
+        <Field label="Workouts / week"><input type="number" value={p.weekly_goal || ""} onChange={(e) => setP({ ...p, weekly_goal: e.target.value })} className={inputCls} /></Field>
+      </div>
+      <Field label="Default rest timer (seconds)"><input type="number" value={p.default_rest_seconds || ""} onChange={(e) => setP({ ...p, default_rest_seconds: e.target.value })} className={inputCls} /></Field>
+      <button className="w-full rounded-xl bg-lime py-3 font-bold text-black active:scale-[0.98]">Save profile</button>
+    </form>
+  );
+}
+
 const GOAL_DEFS = [
-  ["weekly_workouts", "Workouts per week", ""],
   ["weight", "Target weight", "kg"],
   ["calories", "Daily calories", "kcal"],
   ["protein", "Daily protein", "g"],

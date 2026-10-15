@@ -18,6 +18,8 @@ class ExerciseIn(BaseModel):
     name: str
     muscle_group: str
     equipment: str = ""
+    target_part: str = ""
+    body_parts: str = ""
 
 
 class ExerciseOut(ExerciseIn):
@@ -148,6 +150,8 @@ class PlanExerciseOut(BaseModel):
     position: int
     exercise_name: Optional[str] = None
     muscle_group: Optional[str] = None
+    target_part: Optional[str] = None
+    body_parts: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -162,6 +166,19 @@ class PlanOut(BaseModel):
     name: str
     muscle_groups: str
     items: List[PlanExerciseOut] = []
+    model_config = {"from_attributes": True}
+
+
+# ---------- profile ----------
+class ProfileIn(BaseModel):
+    name: str = ""
+    height_cm: float = 0
+    default_rest_seconds: int = 90
+    weekly_goal: int = 3
+
+
+class ProfileOut(ProfileIn):
+    id: int
     model_config = {"from_attributes": True}
 
 

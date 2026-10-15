@@ -17,6 +17,8 @@ def _to_out(p: models.WorkoutPlan) -> schemas.PlanOut:
         if it.exercise:
             o.exercise_name = it.exercise.name
             o.muscle_group = it.exercise.muscle_group
+            o.target_part = it.exercise.target_part
+            o.body_parts = it.exercise.body_parts
         items.append(o)
     return schemas.PlanOut(id=p.id, name=p.name, muscle_groups=p.muscle_groups, items=items)
 

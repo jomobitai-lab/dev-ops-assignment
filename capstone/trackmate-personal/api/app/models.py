@@ -14,6 +14,8 @@ class Exercise(Base):
     name = Column(String(120), nullable=False)
     muscle_group = Column(String(60), nullable=False)   # e.g. Chest, Back, Legs
     equipment = Column(String(60), default="")          # e.g. Barbell, Dumbbell
+    target_part = Column(String(80), default="")        # e.g. "Upper chest", "Hamstrings"
+    body_parts = Column(String(120), default="")        # body-map keys, e.g. "chest,front-deltoids"
     is_custom = Column(Integer, default=0)              # 0 = template, 1 = user-added
 
 
@@ -100,6 +102,16 @@ class Goal(Base):
     type = Column(String(40), unique=True, nullable=False)
     target_value = Column(Float, nullable=False)
     note = Column(String(200), default="")
+
+
+class Profile(Base):
+    """Single-row user profile / preferences."""
+    __tablename__ = "profile"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(120), default="")
+    height_cm = Column(Float, default=0)
+    default_rest_seconds = Column(Integer, default=90)   # default rest timer
+    weekly_goal = Column(Integer, default=3)             # target gym days / week
 
 
 class WorkoutPlan(Base):
