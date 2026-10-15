@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Check, Plus, ChevronLeft, X } from "lucide-react";
+import { Search, Check, Plus, ChevronLeft, X, PlusCircle } from "lucide-react";
 import { api } from "../../api";
 import BodyMap, { musclesForGroups } from "../widgets/BodyMap.jsx";
-import { inputCls } from "../ui/sheet.jsx";
+import { Sheet, Field, inputCls } from "../ui/sheet.jsx";
 
 const GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Forearms", "Legs", "Core"];
 
@@ -17,8 +17,18 @@ export default function SessionBuilder({
   const [picked, setPicked] = useState(initialExerciseIds);   // exercise ids, ordered
   const [query, setQuery] = useState("");
   const [name, setName] = useState(initialName);
+  const [customOpen, setCustomOpen] = useState(false);
 
-  useEffect(() => { api.get("/exercises").then(setAll).catch(() => {}); }, []);
+  const loadExercises = () => api.get("/exercises").then(setAll).catch(() => {});
+  useEffect(() => { loadExercises(); }, []);
+
+  async function createCustom(form) {
+    const created = await api.post("/exercises", form);
+    await loadExercises();
+    setPicked((s) => (s.includes(created.id) ? s : [...s, created.id]));
+    if (form.muscle_group && !groups.includes(form.muscle_group)) setGroups((g) => [...g, form.muscle_group]);
+    setCustomOpen(false);
+  }
 
   // when starting from a template, default the group chips to the picked exercises' groups
   useEffect(() => {
@@ -135,9 +145,15 @@ export default function SessionBuilder({
           })}
           {shown.length === 0 && (
             <div className="rounded-2xl bg-card px-4 py-6 text-center text-sm text-muted-foreground">
-              {groups.length ? "No exercises match." : "Pick a muscle group or search."}
+              {groups.length || query.trim() ? "No exercises match." : "Pick a muscle group or search."}
             </div>
           )}
+
+          {/* add a custom exercise */}
+          <button onClick={() => setCustomOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted-foreground active:border-lime active:text-lime">
+            <PlusCircle className="h-4 w-4" /> Add your own exercise
+          </button>
         </div>
       </div>
 
@@ -149,6 +165,63 @@ export default function SessionBuilder({
           {submitLabel} {picked.length ? `(${picked.length})` : ""}
         </button>
       </div>
+
+      {customOpen && (
+        <CustomExerciseSheet
+          groups={GROUPS}
+          defaultGroup={groups[0] || "Chest"}
+          onClose={() => setCustomOpen(false)}
+          onCreate={createCustom}
+        />
+      )}
     </div>
+  );
+}
+
+function CustomExerciseSheet({ groups, defaultGroup, onClose, onCreate }) {
+  const [name, setName] = useState("");
+  const [group, setGroup] = useState(defaultGroup);
+  const [target, setTarget] = useState("");
+  const [equipment, setEquipment] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await onCreate({ name: name.trim(), muscle_group: group, target_part: target.trim(), equipment: equipment.trim() });
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()} title="Add your own exercise">
+      <form onSubmit={submit}>
+        <Field label="Exercise name">
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="e.g. Incline Cable Fly" autoFocus />
+        </Field>
+        <div className="mb-3">
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">Target muscle</div>
+          <div className="flex flex-wrap gap-2">
+            {groups.map((g) => (
+              <button key={g} type="button" onClick={() => setGroup(g)}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${group === g ? "bg-lime text-black" : "bg-secondary text-muted-foreground"}`}>
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Field label="Target part (optional)">
+          <input value={target} onChange={(e) => setTarget(e.target.value)} className={inputCls} placeholder="e.g. Upper chest" />
+        </Field>
+        <Field label="Equipment (optional)">
+          <input value={equipment} onChange={(e) => setEquipment(e.target.value)} className={inputCls} placeholder="e.g. Cable" />
+        </Field>
+        <button disabled={busy || !name.trim()}
+          className="mt-1 w-full rounded-xl bg-lime py-3 font-bold text-black active:scale-[0.98] disabled:opacity-50">
+          {busy ? "Saving…" : "Add exercise"}
+        </button>
+      </form>
+    </Sheet>
   );
 }

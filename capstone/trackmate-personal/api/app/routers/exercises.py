@@ -10,6 +10,19 @@ from .. import models, schemas
 
 router = APIRouter(prefix="/api/exercises", tags=["exercises"])
 
+# Muscle group -> body-map keys, so a custom exercise highlights sensibly
+# without the user needing to know body-map internals.
+GROUP_BODY = {
+    "Chest": "chest",
+    "Back": "upper-back,lower-back,trapezius",
+    "Legs": "quadriceps,hamstring,calves,gluteal",
+    "Shoulders": "front-deltoids,back-deltoids",
+    "Biceps": "biceps",
+    "Triceps": "triceps",
+    "Forearms": "forearm",
+    "Core": "abs,obliques",
+}
+
 
 @router.get("", response_model=List[schemas.ExerciseOut])
 def list_exercises(muscle_group: Optional[str] = None,
@@ -23,7 +36,13 @@ def list_exercises(muscle_group: Optional[str] = None,
 @router.post("", response_model=schemas.ExerciseOut, status_code=201)
 def add_exercise(body: schemas.ExerciseIn,
                  db: Session = Depends(get_db), _: bool = Depends(require_auth)):
-    ex = models.Exercise(**body.model_dump(), is_custom=1)
+    data = body.model_dump()
+    # fill sensible defaults so a custom exercise highlights on the body map
+    if not data.get("body_parts"):
+        data["body_parts"] = GROUP_BODY.get(data["muscle_group"], "")
+    if not data.get("target_part"):
+        data["target_part"] = data["muscle_group"]
+    ex = models.Exercise(**data, is_custom=1)
     db.add(ex)
     db.commit()
     db.refresh(ex)

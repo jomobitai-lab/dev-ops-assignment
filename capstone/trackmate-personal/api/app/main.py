@@ -3,9 +3,11 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from sqlalchemy import inspect, text
+
 from .db import Base, engine, get_db
 from . import models  # noqa: F401  (registers the tables)
-from .seed import seed_exercises
+from .seed import seed_exercises, TEMPLATES
 from .auth import check_password, create_token
 from . import schemas
 from .routers import (
@@ -24,12 +26,50 @@ app.add_middleware(
 )
 
 
+# Columns added after the first release — added to existing DBs on startup so
+# older databases keep working without a manual reset (lightweight auto-migrate).
+_NEW_COLUMNS = {
+    "exercises": [
+        ("target_part", "VARCHAR(80) DEFAULT ''"),
+        ("body_parts", "VARCHAR(120) DEFAULT ''"),
+    ],
+}
+
+
+def _migrate():
+    """Add any missing columns to existing tables (SQLite & Postgres safe)."""
+    insp = inspect(engine)
+    existing = set(insp.get_table_names())
+    for table, columns in _NEW_COLUMNS.items():
+        if table not in existing:
+            continue
+        have = {c["name"] for c in insp.get_columns(table)}
+        with engine.begin() as conn:
+            for name, ddl in columns:
+                if name not in have:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+
+def _backfill(db):
+    """Fill target_part / body_parts on seeded exercises that pre-date them."""
+    by_name = {t[0]: (t[3], t[4]) for t in TEMPLATES}
+    changed = False
+    for ex in db.query(models.Exercise).all():
+        if (not ex.target_part) and ex.name in by_name:
+            ex.target_part, ex.body_parts = by_name[ex.name]
+            changed = True
+    if changed:
+        db.commit()
+
+
 def init_db():
-    """Create tables if missing and seed the exercise library."""
-    Base.metadata.create_all(bind=engine)
+    """Create tables if missing, migrate older DBs, and seed the library."""
+    Base.metadata.create_all(bind=engine)   # creates any brand-new tables
+    _migrate()                              # adds new columns to old tables
     db = next(get_db())
     try:
         seed_exercises(db)
+        _backfill(db)
     finally:
         db.close()
 
