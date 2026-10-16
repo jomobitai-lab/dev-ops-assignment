@@ -1,13 +1,38 @@
-# TrackMate — Containerised / DevOps Edition
+# TrackMate
 
-This is the **assignment edition** of TrackMate: the same application as
-`trackmate-personal`, packaged for a real deployment pipeline with **Docker**,
-**Docker Compose**, **Kubernetes**, and a **CI/CD** workflow.
+TrackMate is a personal fitness and life tracker I built to keep everything I
+care about in one place — my **gym training**, **body weight**, **daily
+nutrition**, **sleep**, **earnings**, and **personal goals** — and to see my
+progress over time instead of scattered notes on my phone.
 
-> The personal edition deploys serverless (Vercel + Neon). This edition runs as
-> containers you build and orchestrate yourself — Postgres, the FastAPI API, and
-> an nginx-served frontend — so it can run anywhere Docker/Kubernetes runs, with
-> no paid cloud required (works on Docker Desktop, minikube, or kind).
+It's a full-stack app (React + FastAPI + PostgreSQL) packaged to run anywhere
+with **Docker**, orchestrated on **Kubernetes**, and shipped through a **CI/CD**
+pipeline.
+
+---
+
+## What it does
+
+- **Train** — start a workout session, pick the muscle groups and exercises for
+  the day (or load a saved **workout plan**), and log each set (weight × reps,
+  with comments for things like dropsets). An interactive **front + back body map**
+  highlights the muscles each exercise targets, and every exercise shows your
+  **personal record** and **last session** so you know what to beat. A built-in
+  **rest timer** keeps rest honest between sets.
+- **Workout plans** — create reusable plans (e.g. "Pull day — Back + Biceps")
+  and start a session from one in a tap.
+- **Nutrition** — log daily calories and protein/carbs/fat; a live macro donut
+  and target bars show how the day is going.
+- **Progress** — body-weight trend chart and a list of personal records.
+- **Home dashboard** — weekly training streak, quick stats, a workout activity
+  heatmap, and a muscle-balance radar.
+- **More** — sleep (bedtime/wake, hours auto-calculated), earnings with a running
+  total, "wins" (milestones), goals, and a profile (name, weekly target, default
+  rest time).
+- **Private** — a single-password login so the data stays mine.
+
+**Stack:** React + Vite · FastAPI · SQLAlchemy · PostgreSQL · nginx · Docker ·
+Kubernetes · GitHub Actions.
 
 ---
 
@@ -15,10 +40,10 @@ This is the **assignment edition** of TrackMate: the same application as
 
 ```
                          ┌──────────────────────────────────────────┐
-                         │                 Cluster / Compose         │
+                         │             Cluster / Compose             │
   Browser                │                                           │
   ───────▶  :8080 / Ingress ─▶  frontend (nginx)                     │
-                         │          │  serves the React SPA          │
+                         │          │  serves the React app          │
                          │          │  proxies /api/* ──▶ api (FastAPI/uvicorn)
                          │          │                        │        │
                          │          │                        ▼        │
@@ -28,14 +53,11 @@ This is the **assignment edition** of TrackMate: the same application as
                          └──────────────────────────────────────────┘
 ```
 
-- **frontend** — Vite build served by nginx; also reverse-proxies `/api` to the
-  API (so the browser only ever talks to one origin). Health: `/healthz`.
-- **api** — FastAPI on uvicorn. Creates/migrates its schema and seeds the
-  exercise library on startup. Health: `/api/health`.
+- **frontend** — the React build served by nginx, which also reverse-proxies
+  `/api` to the backend so the browser talks to a single origin. Health: `/healthz`.
+- **api** — FastAPI on uvicorn; creates/migrates its schema and seeds the exercise
+  library on startup. Health: `/api/health`.
 - **db** — PostgreSQL 16 with a persistent volume.
-
-**Stack:** FastAPI · SQLAlchemy · PostgreSQL · React + Vite · nginx · Docker ·
-Kubernetes · GitHub Actions.
 
 ---
 
@@ -61,9 +83,9 @@ docker compose down           # stop
 docker compose down -v        # stop and wipe the database volume
 ```
 
-What happens: Compose starts Postgres, waits for it to be healthy, starts the API
-(which creates tables + seeds exercises), then starts the nginx frontend on port
-8080 which proxies `/api` to the API.
+Compose starts Postgres, waits for it to be healthy, starts the API (which
+creates tables and seeds the exercise library), then starts the nginx frontend
+on port 8080 which proxies `/api` to the API.
 
 ---
 
@@ -75,9 +97,9 @@ pip install -r requirements-dev.txt
 pytest -q                     # or, from the project root: make test
 ```
 
-The suite runs the API against a throwaway SQLite DB (no Postgres needed) and
-covers health, auth, the seeded exercise library, workout-plan CRUD, custom
-exercises, and the profile endpoint.
+The suite runs the API against a throwaway SQLite database (no Postgres needed)
+and covers health, authentication, the seeded exercise library, workout-plan
+CRUD, custom exercises, and the profile endpoint.
 
 ---
 
@@ -129,7 +151,7 @@ echo "127.0.0.1 trackmate.local" | sudo tee -a /etc/hosts
 - **StatefulSet + PVC** for Postgres (stable identity + durable storage).
 - **Deployments** with readiness/liveness probes, resource requests/limits, 2 replicas.
 - **Services** for in-cluster DNS; the API connection string is assembled from
-  ConfigMap + Secret using Kubernetes `$(VAR)` substitution.
+  the ConfigMap + Secret using Kubernetes `$(VAR)` substitution.
 - **Ingress** routing the host to the frontend.
 - **HorizontalPodAutoscaler** scaling the API on CPU (needs metrics-server).
 
@@ -139,7 +161,7 @@ echo "127.0.0.1 trackmate.local" | sudo tee -a /etc/hosts
 
 `.github/workflows/ci-cd.yml` defines the pipeline:
 
-1. **API tests** — install deps, run `pytest`.
+1. **API tests** — install dependencies, run `pytest`.
 2. **Frontend build** — `npm ci` + `npm run build`.
 3. **Docker** — build both images and push them to **GHCR**
    (`ghcr.io/<owner>/<repo>/trackmate-api` and `-frontend`) on branch pushes;
@@ -147,9 +169,9 @@ echo "127.0.0.1 trackmate.local" | sudo tee -a /etc/hosts
    secrets needed) and GitHub Actions layer caching.
 
 > GitHub only runs workflows located at the **repository root** `.github/workflows/`.
-> This file lives in the project folder as the deliverable; to activate it, copy it up:
+> This copy lives in the project folder; to activate it on GitHub, copy it up:
 > ```bash
-> cp capstone/trackmate-assignment/.github/workflows/ci-cd.yml .github/workflows/
+> cp .github/workflows/ci-cd.yml <repo-root>/.github/workflows/
 > ```
 
 ---
@@ -171,9 +193,9 @@ echo "127.0.0.1 trackmate.local" | sudo tee -a /etc/hosts
 ## Project structure
 
 ```
-trackmate-assignment/
+trackmate/
 ├── api/                      # FastAPI service
-│   ├── app/                  # application code (shared with personal edition)
+│   ├── app/                  # application code (routers, models, auth, seed)
 │   ├── tests/                # pytest suite (runs on SQLite)
 │   ├── requirements.txt
 │   ├── requirements-dev.txt
@@ -197,7 +219,7 @@ trackmate-assignment/
 |---|---|
 | `docker compose up` hangs on `db` | Postgres is still starting; the API waits for the healthcheck. Give it a few seconds. |
 | API logs `could not connect to server` | DB not ready yet, or `DATABASE_URL` points at the wrong host. In-cluster the host is `trackmate-db`; in Compose it's `db`. |
-| `column exercises.target_part does not exist` | An old DB from before the schema change. The API auto-adds missing columns on startup — restart the API pod/container. To reset in Compose: `docker compose down -v`. |
+| `column exercises.target_part does not exist` | An old database from before a schema change. The API adds missing columns on startup — restart the API pod/container. To reset in Compose: `docker compose down -v`. |
 | Frontend loads but API calls 404/502 | `BACKEND_URL` is wrong or the API isn't reachable. Check `kubectl -n trackmate get pods` / `docker compose ps`. |
 | K8s pods stuck `ImagePullBackOff` | The `:local` images aren't in the cluster. Re-run the image build step for your cluster (minikube `docker-env` or `kind load`). |
 | HPA shows `<unknown>` targets | metrics-server isn't installed (`minikube addons enable metrics-server`). |
@@ -205,13 +227,9 @@ trackmate-assignment/
 
 ---
 
-## Notes & scope
+## Notes
 
-- **Schema management:** the API creates tables and applies additive column
-  migrations on startup (safe for SQLite and Postgres), so no manual migration
-  step is needed. A dedicated migration tool (Alembic) could replace this later.
-- **Not included (deliberately):** Terraform/EKS and a full monitoring stack were
-  left out because this edition targets a free, local cluster. A Helm chart and
-  Prometheus/Grafana monitoring can be added on request.
-- This edition is a copy of `trackmate-personal` with the Vercel-specific files
-  removed and the Docker/K8s/CI-CD layer added; application behaviour is identical.
+- **Schema management:** the API creates its tables and applies additive column
+  migrations on startup (safe for both SQLite and Postgres), so there's no manual
+  migration step. Credentials and the database connection are all driven by
+  environment variables, so nothing sensitive is committed.

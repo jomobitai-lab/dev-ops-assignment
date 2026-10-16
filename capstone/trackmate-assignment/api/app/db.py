@@ -6,7 +6,7 @@ from .config import settings
 
 url = settings.DATABASE_URL
 
-# Neon/Postgres sometimes gives a URL starting with "postgres://"; SQLAlchemy wants "postgresql://".
+# Some providers give a URL starting with "postgres://"; SQLAlchemy wants "postgresql://".
 if url.startswith("postgres://"):
     url = url.replace("postgres://", "postgresql://", 1)
 
