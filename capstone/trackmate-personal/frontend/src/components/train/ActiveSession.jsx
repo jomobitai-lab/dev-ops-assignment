@@ -3,11 +3,13 @@ import { Check, ChevronRight, Plus, Trash2, Search, Flag } from "lucide-react";
 import { api } from "../../api";
 import BodyMap from "../widgets/BodyMap.jsx";
 import { Sheet, inputCls } from "../ui/sheet.jsx";
+import { useToast } from "../ui/toast.jsx";
 import ExerciseSheet from "./ExerciseSheet.jsx";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function ActiveSession({ session, setSession, defaultRest = 90, onEnd }) {
+  const toast = useToast();
   const [openId, setOpenId] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [all, setAll] = useState([]);
@@ -30,7 +32,7 @@ export default function ActiveSession({ session, setSession, defaultRest = 90, o
     setSession((s) => ({ ...s, exercises: s.exercises.filter((e) => e.id !== id) }));
   }
   function openAdd() {
-    if (!all.length) api.get("/exercises").then(setAll).catch(() => {});
+    if (!all.length) api.get("/exercises").then(setAll).catch((err) => toast.error(err));
     setAddOpen(true);
   }
   function addExercise(ex) {
@@ -47,8 +49,9 @@ export default function ActiveSession({ session, setSession, defaultRest = 90, o
     });
     try {
       await api.post("/workouts", { date: todayISO(), day_label: session.dayLabel || "Workout", notes: "", sets });
+      toast.success("Session saved to history");
       onEnd();
-    } finally { setSaving(false); }
+    } catch (err) { toast.error(err); } finally { setSaving(false); }
   }
 
   const shown = all.filter((e) => {

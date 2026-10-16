@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronLeft, Calendar, ChevronDown } from "lucide-react";
-import { api } from "../../api";
+import { useFetch, ErrorState, Skeleton } from "../ui/feedback.jsx";
 
 // Past sessions, grouped nicely (matches the WhatsApp-style log the user keeps).
 export default function History({ onBack }) {
-  const [rows, setRows] = useState([]);
+  const { data, loading, error, reload } = useFetch("/workouts");
   const [open, setOpen] = useState(null);
-
-  useEffect(() => { api.get("/workouts").then((w) => setRows(w.slice().reverse())).catch(() => {}); }, []);
+  const rows = (data || []).slice().reverse();
 
   return (
     <div className="space-y-4">
@@ -16,7 +15,9 @@ export default function History({ onBack }) {
         <h1 className="text-xl font-extrabold tracking-tight">History</h1>
       </header>
 
-      {rows.length === 0 && <div className="rounded-2xl bg-card px-4 py-6 text-center text-sm text-muted-foreground">No sessions logged yet.</div>}
+      {loading && <div className="space-y-2">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[66px]" />)}</div>}
+      {!loading && error && <ErrorState error={error} onRetry={reload} label="Couldn't load history" />}
+      {!loading && !error && rows.length === 0 && <div className="rounded-2xl bg-card px-4 py-6 text-center text-sm text-muted-foreground">No sessions logged yet.</div>}
 
       <div className="space-y-2">
         {rows.map((w) => {

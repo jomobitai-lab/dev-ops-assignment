@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Dumbbell } from "lucide-react";
-import { api, setToken } from "../api";
+import { api, setToken, ApiError } from "../api";
+import { useToast } from "../components/ui/toast.jsx";
 
 export default function Login({ onLogin }) {
+  const toast = useToast();
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -14,8 +16,14 @@ export default function Login({ onLogin }) {
       const { token } = await api.login(password);
       setToken(token);
       onLogin();
-    } catch {
-      setErr("Wrong password. Try again.");
+    } catch (e2) {
+      if (e2 instanceof ApiError && e2.status === 401) {
+        setErr("Wrong password. Try again.");
+      } else {
+        // server down / network / unexpected — show the real reason
+        setErr("Couldn't sign in. Try again.");
+        toast.error(e2);
+      }
       setBusy(false);
     }
   }

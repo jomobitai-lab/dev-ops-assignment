@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
-import { Play, Plus, History as HistoryIcon, Dumbbell, Pencil, Trash2, ChevronRight } from "lucide-react";
+import { Play, Plus, History as HistoryIcon, Dumbbell, Pencil, Trash2 } from "lucide-react";
 import { api } from "../api";
 import SessionBuilder from "../components/train/SessionBuilder.jsx";
 import ActiveSession from "../components/train/ActiveSession.jsx";
 import History from "../components/train/History.jsx";
+import { useToast } from "../components/ui/toast.jsx";
+import { ErrorState, Skeleton } from "../components/ui/feedback.jsx";
 
 export default function Train() {
+  const toast = useToast();
   const [mode, setMode] = useState("home");   // home | build | active | template | history
   const [session, setSession] = useState({ dayLabel: "", exercises: [] });
   const [templates, setTemplates] = useState([]);
+  const [tplLoading, setTplLoading] = useState(true);
+  const [tplError, setTplError] = useState(null);
   const [editing, setEditing] = useState(null);
   const [rest, setRest] = useState(90);
 
-  const loadTemplates = () => api.get("/plans").then(setTemplates).catch(() => {});
+  const loadTemplates = () => {
+    setTplLoading(true); setTplError(null);
+    return api.get("/plans").then(setTemplates).catch(setTplError).finally(() => setTplLoading(false));
+  };
   useEffect(() => {
     loadTemplates();
     api.get("/profile").then((p) => setRest(p.default_rest_seconds || 90)).catch(() => {});
@@ -35,11 +43,17 @@ export default function Train() {
   async function saveTemplate(name, exercises) {
     const groups = [...new Set(exercises.map((e) => e.muscle_group))].join(", ");
     const items = exercises.map((e, i) => ({ exercise_id: e.id, position: i }));
-    if (editing) await api.put(`/plans/${editing.id}`, { name, muscle_groups: groups, items });
-    else await api.post("/plans", { name, muscle_groups: groups, items });
-    setEditing(null); await loadTemplates(); setMode("home");
+    try {
+      if (editing) await api.put(`/plans/${editing.id}`, { name, muscle_groups: groups, items });
+      else await api.post("/plans", { name, muscle_groups: groups, items });
+      toast.success(editing ? "Template updated" : "Template saved");
+      setEditing(null); await loadTemplates(); setMode("home");
+    } catch (err) { toast.error(err); throw err; }   // rethrow so the builder keeps the sheet open
   }
-  async function deleteTemplate(id) { await api.del(`/plans/${id}`); loadTemplates(); }
+  async function deleteTemplate(id) {
+    try { await api.del(`/plans/${id}`); toast.success("Template deleted"); loadTemplates(); }
+    catch (err) { toast.error(err); }
+  }
 
   if (mode === "build")
     return (
@@ -92,12 +106,14 @@ export default function Train() {
         </div>
 
         <div className="space-y-2">
-          {templates.length === 0 && (
+          {tplLoading && [0, 1].map((i) => <Skeleton key={i} className="h-[74px]" />)}
+          {!tplLoading && tplError && <ErrorState error={tplError} onRetry={loadTemplates} label="Couldn't load templates" />}
+          {!tplLoading && !tplError && templates.length === 0 && (
             <div className="rounded-2xl bg-card px-4 py-6 text-center text-sm text-muted-foreground">
               No templates yet. Create one to start a session in one tap.
             </div>
           )}
-          {templates.map((t) => (
+          {!tplLoading && !tplError && templates.map((t) => (
             <div key={t.id} className="flex items-center gap-2 rounded-2xl bg-card px-4 py-3.5">
               <button onClick={() => startFromTemplate(t)} className="flex flex-1 items-center justify-between text-left">
                 <div>

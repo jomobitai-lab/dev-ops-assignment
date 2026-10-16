@@ -3,6 +3,7 @@ import { Search, Check, Plus, ChevronLeft, X, PlusCircle } from "lucide-react";
 import { api } from "../../api";
 import BodyMap, { musclesForGroups } from "../widgets/BodyMap.jsx";
 import { Sheet, Field, inputCls } from "../ui/sheet.jsx";
+import { useToast } from "../ui/toast.jsx";
 
 const GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Forearms", "Legs", "Core"];
 
@@ -12,22 +13,27 @@ export default function SessionBuilder({
   title, nameLabel, namePlaceholder, submitLabel,
   initialName = "", initialExerciseIds = [], onSubmit, onCancel,
 }) {
+  const toast = useToast();
   const [all, setAll] = useState([]);
   const [groups, setGroups] = useState([]);
   const [picked, setPicked] = useState(initialExerciseIds);   // exercise ids, ordered
   const [query, setQuery] = useState("");
   const [name, setName] = useState(initialName);
   const [customOpen, setCustomOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const loadExercises = () => api.get("/exercises").then(setAll).catch(() => {});
   useEffect(() => { loadExercises(); }, []);
 
   async function createCustom(form) {
-    const created = await api.post("/exercises", form);
-    await loadExercises();
-    setPicked((s) => (s.includes(created.id) ? s : [...s, created.id]));
-    if (form.muscle_group && !groups.includes(form.muscle_group)) setGroups((g) => [...g, form.muscle_group]);
-    setCustomOpen(false);
+    try {
+      const created = await api.post("/exercises", form);
+      await loadExercises();
+      setPicked((s) => (s.includes(created.id) ? s : [...s, created.id]));
+      if (form.muscle_group && !groups.includes(form.muscle_group)) setGroups((g) => [...g, form.muscle_group]);
+      setCustomOpen(false);
+      toast.success(`Added "${created.name}"`);
+    } catch (err) { toast.error(err); throw err; }   // rethrow so the sheet keeps its busy state off
   }
 
   // when starting from a template, default the group chips to the picked exercises' groups
@@ -61,9 +67,16 @@ export default function SessionBuilder({
     ? [...new Set(pickedExercises.flatMap((e) => (e.body_parts || "").split(",").filter(Boolean)))]
     : musclesForGroups(groups);
 
-  function submit() {
-    if (!name.trim() || !picked.length) return;
-    onSubmit(name.trim(), pickedExercises);
+  async function submit() {
+    if (!name.trim() || !picked.length || busy) return;
+    setBusy(true);
+    try {
+      await onSubmit(name.trim(), pickedExercises);   // may be async (template save)
+    } catch {
+      /* onSubmit already surfaced the error via toast; keep the builder open */
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -160,9 +173,9 @@ export default function SessionBuilder({
       {/* fixed action bar (sits just above the tab bar, with a fade so the
           list scrolls out of sight behind it instead of showing through) */}
       <div className="fixed inset-x-0 bottom-[76px] z-30 mx-auto max-w-screen-sm bg-gradient-to-t from-background via-background to-transparent px-4 pb-3 pt-8">
-        <button disabled={!name.trim() || !picked.length} onClick={submit}
+        <button disabled={!name.trim() || !picked.length || busy} onClick={submit}
           className="w-full rounded-2xl bg-lime py-3.5 font-bold text-black shadow-lg shadow-black/50 active:scale-[0.98] disabled:opacity-40">
-          {submitLabel} {picked.length ? `(${picked.length})` : ""}
+          {busy ? "Saving…" : `${submitLabel}${picked.length ? ` (${picked.length})` : ""}`}
         </button>
       </div>
 

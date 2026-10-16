@@ -1,113 +1,41 @@
-"use client";
+import { useEffect, useState } from "react";
 
-import { useEffect, useId } from "react";
-import { MotionValue, motion, useSpring, useTransform, motionValue } from "motion/react";
-import useMeasure from "react-use-measure";
-
-const TRANSITION = {
-  type: "spring",
-  stiffness: 280,
-  damping: 18,
-  mass: 0.3
-};
-
-function Digit({ value, place }: { value: number; place: number }) {
-  const valueRoundedToPlace = Math.floor(value / place) % 10;
-  const initial = motionValue(valueRoundedToPlace);
-  const animatedValue = useSpring(initial, TRANSITION);
-
+// A single rolling digit: a vertical 0–9 column clipped to one line, rolled with
+// a CSS transform transition. Uses explicit inline styles so clipping is reliable
+// regardless of utility-class quirks.
+function RollDigit({ digit }: { digit: number }) {
+  const [v, setV] = useState(0);
   useEffect(() => {
-    animatedValue.set(valueRoundedToPlace);
-  }, [animatedValue, valueRoundedToPlace]);
-
+    const t = setTimeout(() => setV(digit), 30);
+    return () => clearTimeout(t);
+  }, [digit]);
   return (
-    <div className="relative inline-block w-[1ch] overflow-x-visible overflow-y-clip leading-none tabular-nums">
-      <div className="invisible">0</div>
-      {Array.from({ length: 10 }, (_, i) => (
-        <Number key={i} mv={animatedValue} number={i} />
-      ))}
-    </div>
-  );
-}
-
-function Number({ mv, number }: { mv: MotionValue<number>; number: number }) {
-  const uniqueId = useId();
-  const [ref, bounds] = useMeasure();
-
-  const y = useTransform(mv, (latest) => {
-    if (!bounds.height) return 0;
-    const placeValue = latest % 10;
-    const offset = (10 + number - placeValue) % 10;
-    let memo = offset * bounds.height;
-
-    if (offset > 5) {
-      memo -= 10 * bounds.height;
-    }
-
-    return memo;
-  });
-
-  // don't render the animated number until we know the height
-  if (!bounds.height) {
-    return (
-      <span ref={ref} className="invisible absolute">
-        {number}
+    <span style={{ display: "inline-block", height: "1em", lineHeight: "1em", overflow: "hidden", verticalAlign: "baseline" }}>
+      <span style={{ display: "block", transform: `translateY(-${v}em)`, transition: "transform 0.7s cubic-bezier(0.22,1,0.36,1)" }}>
+        {Array.from({ length: 10 }, (_, n) => (
+          <span key={n} style={{ display: "block", height: "1em", lineHeight: "1em", textAlign: "center" }}>{n}</span>
+        ))}
       </span>
-    );
-  }
-
-  return (
-    <motion.span
-      style={{ y }}
-      layoutId={`${uniqueId}-${number}`}
-      className="absolute inset-0 flex items-center justify-center"
-      transition={TRANSITION}
-      ref={ref}>
-      {number}
-    </motion.span>
+    </span>
   );
 }
 
-type SlidingNumberProps = {
-  value: number;
-  padStart?: boolean;
-  decimalSeparator?: string;
-};
+type Props = { value: number; padStart?: boolean; decimalSeparator?: string };
 
-export function SlidingNumber({
-  value,
-  padStart = false,
-  decimalSeparator = "."
-}: SlidingNumberProps) {
-  const absValue = Math.abs(value);
-  const [integerPart, decimalPart] = absValue.toString().split(".");
-  const integerValue = parseInt(integerPart, 10);
-  const paddedInteger = padStart && integerValue < 10 ? `0${integerPart}` : integerPart;
-  const integerDigits = paddedInteger.split("");
-  const integerPlaces = integerDigits.map((_, i) => Math.pow(10, integerDigits.length - i - 1));
-
+export function SlidingNumber({ value, padStart = false, decimalSeparator = "." }: Props) {
+  const neg = value < 0;
+  const [intPart, decPart] = Math.abs(value).toString().split(".");
+  const intStr = padStart && intPart.length < 2 ? "0" + intPart : intPart;
   return (
-    <div className="flex items-center">
-      {value < 0 && "-"}
-      {integerDigits.map((_, index) => (
-        <Digit
-          key={`pos-${integerPlaces[index]}`}
-          value={integerValue}
-          place={integerPlaces[index]}
-        />
-      ))}
-      {decimalPart && (
+    <span className="tabular-nums" style={{ display: "inline-flex", alignItems: "baseline" }}>
+      {neg && <span>-</span>}
+      {intStr.split("").map((ch, i) => <RollDigit key={`i${i}`} digit={Number(ch)} />)}
+      {decPart !== undefined && (
         <>
           <span>{decimalSeparator}</span>
-          {decimalPart.split("").map((_, index) => (
-            <Digit
-              key={`decimal-${index}`}
-              value={parseInt(decimalPart, 10)}
-              place={Math.pow(10, decimalPart.length - index - 1)}
-            />
-          ))}
+          {decPart.split("").map((ch, i) => <RollDigit key={`d${i}`} digit={Number(ch)} />)}
         </>
       )}
-    </div>
+    </span>
   );
 }
