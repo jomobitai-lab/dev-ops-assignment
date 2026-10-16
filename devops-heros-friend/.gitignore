@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs & temp
+*.log
+tmp/
+
+# Homework evidence logs are deliberate deliverables (linked from the READMEs) - keep them
+!**/HW/**/logs/*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage

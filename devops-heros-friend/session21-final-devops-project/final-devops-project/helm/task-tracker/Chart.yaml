@@ -1,0 +1,6 @@
+apiVersion: v2
+name: task-tracker
+description: Task Tracker API - final DevOps project
+type: application
+version: 1.2.1
+appVersion: "1.2.1"
