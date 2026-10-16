@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trackmate-frontend
+  namespace: trackmate
+  labels:
+    app: trackmate-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: trackmate-frontend
+  template:
+    metadata:
+      labels:
+        app: trackmate-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: trackmate-frontend:local   # load into kind/minikube, or set a registry image
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            # nginx proxies /api to this in-cluster address (set in the ConfigMap).
+            - name: BACKEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: trackmate-config
+                  key: BACKEND_URL
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trackmate-frontend
+  namespace: trackmate
+spec:
+  selector:
+    app: trackmate-frontend
+  ports:
+    - port: 80
+      targetPort: 80

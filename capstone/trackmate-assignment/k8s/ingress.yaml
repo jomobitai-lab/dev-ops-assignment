@@ -1,0 +1,21 @@
+# Routes http://trackmate.local to the frontend, which itself proxies /api to
+# the API service. Requires an ingress controller (e.g. ingress-nginx).
+# Add to /etc/hosts:  127.0.0.1 trackmate.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trackmate
+  namespace: trackmate
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: trackmate.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: trackmate-frontend
+                port:
+                  number: 80

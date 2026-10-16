@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trackmate-config
+  namespace: trackmate
+data:
+  POSTGRES_DB: "trackmate"
+  POSTGRES_USER: "trackmate"
+  TOKEN_HOURS: "720"
+  # The frontend proxies /api to this in-cluster address.
+  BACKEND_URL: "http://trackmate-api:8000"
