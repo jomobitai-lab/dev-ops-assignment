@@ -1,16 +1,17 @@
-# Convenience commands for the TrackMate assignment stack.
-.PHONY: help up down logs build test k8s-up k8s-down k8s-images
+# Convenience commands for the TrackMate stack.
+.PHONY: help up down logs build test images helm-up helm-down monitoring-up
 
 help:
 	@echo "Docker Compose:"
-	@echo "  make up          - build & start the full stack (db + api + frontend)"
+	@echo "  make up          - build & start the full stack (db + backend + frontend)"
 	@echo "  make down        - stop the stack"
 	@echo "  make logs        - tail logs"
-	@echo "  make test        - run the API test suite"
-	@echo "Kubernetes (kind/minikube):"
-	@echo "  make k8s-images  - build the images for the cluster"
-	@echo "  make k8s-up      - apply all manifests"
-	@echo "  make k8s-down    - delete the namespace"
+	@echo "  make test        - run the backend test suite"
+	@echo "Kubernetes (kind/minikube + Helm):"
+	@echo "  make images      - build the images for the cluster"
+	@echo "  make helm-up     - deploy with Helm (dev values, ingress on)"
+	@echo "  make helm-down   - uninstall the release"
+	@echo "  make monitoring-up - install Prometheus + Grafana"
 
 # ---- Docker Compose ----
 up:
@@ -26,15 +27,21 @@ build:
 	docker compose build
 
 test:
-	cd api && pip install -r requirements-dev.txt && pytest -q
+	cd backend && pip install -r requirements-dev.txt && pytest -q
 
-# ---- Kubernetes ----
-k8s-images:
-	docker build -t trackmate-api:local ./api
+# ---- Kubernetes + Helm ----
+images:
+	docker build -t trackmate-backend:local ./backend
 	docker build -t trackmate-frontend:local ./frontend
 
-k8s-up:
-	kubectl apply -k k8s/
+helm-up:
+	kubectl apply -f k8s/namespace.yaml
+	helm upgrade --install trackmate ./helm/trackmate -n trackmate -f helm/trackmate/values-dev.yaml
 
-k8s-down:
-	kubectl delete namespace trackmate
+helm-down:
+	helm uninstall trackmate -n trackmate
+
+monitoring-up:
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+		-n monitoring --create-namespace -f monitoring/prometheus-values.yaml

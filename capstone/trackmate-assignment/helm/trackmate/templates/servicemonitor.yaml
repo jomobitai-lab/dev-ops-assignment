@@ -1,0 +1,18 @@
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+# Tells the Prometheus Operator to scrape the backend's /metrics endpoint.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: trackmate-backend
+  labels:
+    {{- include "trackmate.labels" . | nindent 4 }}
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: trackmate-backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+{{- end }}

@@ -1,94 +1,100 @@
 # TrackMate CI/CD pipeline.
+#   test  ->  build + Trivy scan + push to GHCR  ->  deploy with Helm
 #
-# NOTE: GitHub only runs workflows found in `.github/workflows/` at the REPO
-# ROOT. This file lives inside the project folder as the assignment deliverable;
-# to activate it on GitHub, copy it to the repository root:
-#   cp capstone/trackmate-assignment/.github/workflows/ci-cd.yml .github/workflows/
-#
-# Pipeline: test the API -> build the frontend -> build & push both images to
-# GHCR (push only on branch pushes, not pull requests).
+# This workflow assumes the project is the repository root (i.e. you push the
+# trackmate-assignment folder as its own repo). GitHub only runs workflows found
+# at <repo-root>/.github/workflows/.
 name: TrackMate CI/CD
 
 on:
   push:
-    branches: [main, "claude/**"]
-    paths: ["capstone/trackmate-assignment/**"]
+    branches: [main]
   pull_request:
-    paths: ["capstone/trackmate-assignment/**"]
-  workflow_dispatch:
-
-env:
-  IMAGE_PREFIX: ghcr.io/${{ github.repository }}/trackmate
+    branches: [main]
 
 jobs:
-  backend-test:
-    name: API tests
+  test:
+    name: Test (pytest + frontend build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: capstone/trackmate-assignment/api/requirements-dev.txt
-      - name: Install dependencies
-        working-directory: capstone/trackmate-assignment/api
+      - name: Install backend dependencies
+        working-directory: backend
         run: pip install -r requirements-dev.txt
-      - name: Run tests
-        working-directory: capstone/trackmate-assignment/api
+      - name: Run backend tests
+        working-directory: backend
         run: pytest -q
-
-  frontend-build:
-    name: Frontend build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: capstone/trackmate-assignment/frontend/package-lock.json
-      - name: Install dependencies
-        working-directory: capstone/trackmate-assignment/frontend
-        run: npm ci
-      - name: Build
-        working-directory: capstone/trackmate-assignment/frontend
-        run: npm run build
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
 
-  docker:
-    name: Build & push images
-    needs: [backend-test, frontend-build]
+  build-scan-push:
+    name: Build, scan, push
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    env:
+      BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/trackmate-backend
+      FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/trackmate-frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build & push API image
-        uses: docker/build-push-action@v6
+      - name: Build images (tagged with the commit SHA)
+        run: |
+          docker build -t $BACKEND_IMAGE:${{ github.sha }} ./backend
+          docker build -t $FRONTEND_IMAGE:${{ github.sha }} ./frontend
+      - name: Trivy scan — backend
+        uses: aquasecurity/trivy-action@0.30.0
         with:
-          context: capstone/trackmate-assignment/api
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ env.IMAGE_PREFIX }}-api:latest
-            ${{ env.IMAGE_PREFIX }}-api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Build & push frontend image
-        uses: docker/build-push-action@v6
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Trivy scan — frontend
+        uses: aquasecurity/trivy-action@0.30.0
         with:
-          context: capstone/trackmate-assignment/frontend
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ env.IMAGE_PREFIX }}-frontend:latest
-            ${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Push images
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push $BACKEND_IMAGE:${{ github.sha }}
+          docker push $FRONTEND_IMAGE:${{ github.sha }}
+
+  deploy:
+    name: Deploy with Helm
+    if: github.ref == 'refs/heads/main'
+    needs: build-scan-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Configure kubectl
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG_DATA" | base64 -d > ~/.kube/config
+      - name: Helm upgrade --install
+        run: |
+          helm upgrade --install trackmate ./helm/trackmate \
+            -n trackmate --create-namespace \
+            --set backend.image=ghcr.io/${{ github.repository_owner }}/trackmate-backend \
+            --set backend.tag=${{ github.sha }} \
+            --set frontend.image=ghcr.io/${{ github.repository_owner }}/trackmate-frontend \
+            --set frontend.tag=${{ github.sha }}

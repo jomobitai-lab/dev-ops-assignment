@@ -1,8 +1,8 @@
-# TrackMate — full local stack: Postgres + API + frontend (nginx).
+# TrackMate — full local stack: Postgres + backend + frontend (nginx).
 # Usage:
 #   cp .env.example .env
 #   docker compose up --build
-#   open http://localhost:8080
+#   open http://localhost:3000
 name: trackmate
 
 services:
@@ -20,13 +20,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    # Uncomment to inspect the DB from the host (e.g. with psql / a GUI):
+    # Uncomment to inspect the DB from the host:
     # ports: ["5432:5432"]
 
-  api:
+  backend:
     build:
-      context: ./api
-    image: trackmate-api:local
+      context: ./backend
+    image: trackmate-backend:local
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-trackmate}:${POSTGRES_PASSWORD:-trackmate}@db:5432/${POSTGRES_DB:-trackmate}
@@ -36,7 +36,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Uncomment to hit the API directly (bypassing the frontend proxy):
+    # Uncomment to hit the API/docs directly:
     # ports: ["8000:8000"]
 
   frontend:
@@ -45,11 +45,11 @@ services:
     image: trackmate-frontend:local
     restart: unless-stopped
     environment:
-      BACKEND_URL: http://api:8000
+      BACKEND_URL: http://backend:8000
     depends_on:
-      - api
+      - backend
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "${WEB_PORT:-3000}:8080"
 
 volumes:
   pgdata:

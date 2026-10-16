@@ -2,8 +2,8 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, select, func
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from .db import Base, engine, get_db
 from . import models  # noqa: F401  (registers the tables)
@@ -24,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Expose Prometheus metrics at /metrics for scraping (request count, latency…).
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 # Columns added after the first release — added to existing DBs on startup so
@@ -78,8 +81,22 @@ def init_db():
 init_db()
 
 
-@app.get("/api/health")
+@app.get("/health")
 def health():
+    """Liveness: the process is up (cheap, no dependencies)."""
+    return {"status": "UP"}
+
+
+@app.get("/ready")
+def ready(db: Session = Depends(get_db)):
+    """Readiness: can we actually serve traffic? Verifies database access."""
+    db.execute(select(func.count(models.Exercise.id)))
+    return {"status": "READY"}
+
+
+# Kept for the frontend's existing health check (same as /health).
+@app.get("/api/health")
+def api_health():
     return {"status": "ok"}
 
 

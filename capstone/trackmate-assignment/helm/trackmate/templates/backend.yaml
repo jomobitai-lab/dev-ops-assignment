@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trackmate-backend
+  labels:
+    {{- include "trackmate.labels" . | nindent 4 }}
+    app: trackmate-backend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: trackmate-backend
+  template:
+    metadata:
+      labels:
+        app: trackmate-backend
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image }}:{{ .Values.backend.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.username }}:{{ .Values.postgres.password }}@{{ .Values.postgres.host }}:5432/{{ .Values.postgres.database }}"
+            - name: APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: trackmate-app
+                  key: APP_PASSWORD
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: trackmate-app
+                  key: SECRET_KEY
+            - name: TOKEN_HOURS
+              value: {{ .Values.app.tokenHours | quote }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trackmate-backend
+  labels:
+    {{- include "trackmate.labels" . | nindent 4 }}
+    app: trackmate-backend
+spec:
+  selector:
+    app: trackmate-backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http

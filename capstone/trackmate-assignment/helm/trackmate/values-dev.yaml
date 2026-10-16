@@ -1,0 +1,16 @@
+# Local dev overrides: single replicas, ingress on, autoscaling off, local images.
+replicaCount: 1
+
+backend:
+  image: trackmate-backend
+  tag: local
+frontend:
+  image: trackmate-frontend
+  tag: local
+
+ingress:
+  enabled: true
+  host: trackmate.local
+
+hpa:
+  enabled: false

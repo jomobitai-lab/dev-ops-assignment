@@ -1,0 +1,47 @@
+replicaCount: 2
+
+backend:
+  image: ghcr.io/YOUR_ORG/trackmate-backend
+  tag: latest
+frontend:
+  image: ghcr.io/YOUR_ORG/trackmate-frontend
+  tag: latest
+
+imagePullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# App login + token signing (change these for real use).
+app:
+  password: "trackmate"
+  secretKey: "please-change-this-to-a-long-random-string"
+  tokenHours: "720"
+
+postgres:
+  host: trackmate-postgres
+  database: trackmate
+  username: trackmate
+  password: trackmate
+  storage: 5Gi
+
+ingress:
+  enabled: false
+  className: nginx
+  host: trackmate.local
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+monitoring:
+  serviceMonitor:
+    enabled: true

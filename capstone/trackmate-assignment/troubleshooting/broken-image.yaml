@@ -1,0 +1,28 @@
+# Troubleshooting lab: this Deployment references an image tag that does not
+# exist, so its Pod gets stuck in ImagePullBackOff.
+#
+#   kubectl apply -f troubleshooting/broken-image.yaml -n trackmate
+#   kubectl get pods -n trackmate
+#   kubectl describe pod <pod> -n trackmate      # see: Failed to pull image ...
+#   kubectl get events -n trackmate --sort-by=.lastTimestamp
+#
+# Fix: correct the image/tag, then re-apply. Clean up: kubectl delete -f this file.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broken-image
+  labels:
+    app: broken-image
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broken-image
+  template:
+    metadata:
+      labels:
+        app: broken-image
+    spec:
+      containers:
+        - name: app
+          image: trackmate-backend:this-tag-does-not-exist

@@ -13,9 +13,22 @@ def _auth():
 
 
 def test_health():
-    r = client.get("/api/health")
+    r = client.get("/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    assert r.json()["status"] == "UP"
+
+
+def test_ready_checks_db():
+    r = client.get("/ready")
+    assert r.status_code == 200
+    assert r.json()["status"] == "READY"
+
+
+def test_metrics_exposed():
+    r = client.get("/metrics")
+    assert r.status_code == 200
+    # Prometheus exposition format
+    assert "http_requests" in r.text or "# HELP" in r.text
 
 
 def test_login_wrong_password():

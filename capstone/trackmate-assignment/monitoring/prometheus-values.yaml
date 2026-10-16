@@ -1,0 +1,12 @@
+# Values for the kube-prometheus-stack Helm chart.
+# Makes Prometheus pick up ServiceMonitors from any namespace/label (so it finds
+# the TrackMate backend ServiceMonitor) and enables Grafana.
+grafana:
+  enabled: true
+  # Default admin login is admin / prom-operator (change for real use).
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}

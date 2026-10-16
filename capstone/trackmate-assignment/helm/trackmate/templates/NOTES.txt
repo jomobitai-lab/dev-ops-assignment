@@ -1,0 +1,15 @@
+TrackMate has been deployed.
+
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl get svc  -n {{ .Release.Namespace }}
+
+{{- if .Values.ingress.enabled }}
+
+Open the app via the Ingress host (add it to /etc/hosts -> 127.0.0.1):
+  http://{{ .Values.ingress.host }}
+{{- else }}
+
+Port-forward to open the app:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/trackmate-frontend 3000:80
+  open http://localhost:3000
+{{- end }}

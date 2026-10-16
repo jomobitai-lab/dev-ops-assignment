@@ -1,5 +1,5 @@
 # TrackMate API — FastAPI served by uvicorn.
-# Build context: this directory (capstone/trackmate-assignment/api).
+# Build context: this directory (capstone/trackmate-assignment/backend).
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -17,7 +17,9 @@ RUN apt-get update \
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
-# Application code.
+# Alembic migrations + application code.
+COPY alembic.ini ./
+COPY alembic ./alembic
 COPY app ./app
 
 # Drop root privileges.
@@ -28,7 +30,7 @@ EXPOSE 8000
 
 # Fails the container's health status if the API stops responding.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:8000/api/health || exit 1
+    CMD curl -fsS http://localhost:8000/health || exit 1
 
-# --workers scales CPU-bound request handling; tune per container resources.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Apply DB migrations, then start the API. (uvicorn --workers scales request handling.)
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
