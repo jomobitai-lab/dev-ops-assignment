@@ -46,12 +46,12 @@ export default function Train() {
     try {
       if (editing) await api.put(`/plans/${editing.id}`, { name, muscle_groups: groups, items });
       else await api.post("/plans", { name, muscle_groups: groups, items });
-      toast.success(editing ? "Template updated" : "Template saved");
+      toast.success(editing ? "Plan updated" : "Workout plan saved");
       setEditing(null); await loadTemplates(); setMode("home");
     } catch (err) { toast.error(err); throw err; }   // rethrow so the builder keeps the sheet open
   }
   async function deleteTemplate(id) {
-    try { await api.del(`/plans/${id}`); toast.success("Template deleted"); loadTemplates(); }
+    try { await api.del(`/plans/${id}`); toast.success("Plan deleted"); loadTemplates(); }
     catch (err) { toast.error(err); }
   }
 
@@ -66,8 +66,8 @@ export default function Train() {
   if (mode === "template")
     return (
       <SessionBuilder
-        title={editing ? "Edit template" : "New template"} nameLabel="Template name"
-        namePlaceholder="Pull day — Back + Biceps" submitLabel={editing ? "Save template" : "Create template"}
+        title={editing ? "Edit workout plan" : "Create workout plan"} nameLabel="Plan name"
+        namePlaceholder="Pull day — Back + Biceps" submitLabel={editing ? "Save plan" : "Create plan"}
         initialName={editing?.name || ""} initialExerciseIds={editing ? editing.items.map((i) => i.exercise_id) : []}
         onSubmit={saveTemplate} onCancel={() => { setEditing(null); setMode("home"); }}
       />
@@ -99,18 +99,18 @@ export default function Train() {
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Templates</h2>
+          <h2 className="text-sm font-semibold">Workout plans</h2>
           <button onClick={() => { setEditing(null); setMode("template"); }} className="flex items-center gap-1 text-xs text-lime">
-            <Plus className="h-3.5 w-3.5" /> New template
+            <Plus className="h-3.5 w-3.5" /> New plan
           </button>
         </div>
 
         <div className="space-y-2">
           {tplLoading && [0, 1].map((i) => <Skeleton key={i} className="h-[74px]" />)}
-          {!tplLoading && tplError && <ErrorState error={tplError} onRetry={loadTemplates} label="Couldn't load templates" />}
+          {!tplLoading && tplError && <ErrorState error={tplError} onRetry={loadTemplates} label="Couldn't load workout plans" />}
           {!tplLoading && !tplError && templates.length === 0 && (
             <div className="rounded-2xl bg-card px-4 py-6 text-center text-sm text-muted-foreground">
-              No templates yet. Create one to start a session in one tap.
+              No workout plans yet. Create one to start a session in one tap.
             </div>
           )}
           {!tplLoading && !tplError && templates.map((t) => (
